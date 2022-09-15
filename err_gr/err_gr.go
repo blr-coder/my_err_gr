@@ -1,8 +1,8 @@
 package err_gr
 
 import (
+	"bytes"
 	"fmt"
-	"strings"
 	"sync"
 )
 
@@ -11,6 +11,7 @@ import (
 type SomeGroup struct {
 	wg sync.WaitGroup
 	el ErrorsList
+	m  sync.Mutex
 }
 
 func (s *SomeGroup) Go(f func() error) {
@@ -22,10 +23,8 @@ func (s *SomeGroup) Go(f func() error) {
 
 		err := f()
 		if err != nil {
-			s.el = append(s.el, err)
+			s.TryAppendErr(err)
 		}
-
-		//s.wg.Done()
 	}()
 }
 
@@ -39,11 +38,21 @@ type ErrorsList []error
 
 func (l ErrorsList) Error() string {
 
-	var s []string
+	//ss := strings.Builder{}
+
+	bb := bytes.NewBuffer([]byte{})
 
 	for _, err := range l {
-		s = append(s, fmt.Sprintf("%v", err))
+		//ss.WriteString(fmt.Sprintf("%v", err))
 
+		_, _ = fmt.Fprintf(bb, "%v; ", err)
 	}
-	return fmt.Sprintf("SomeGroupErrors: %v", strings.Join(s, "; "))
+	//return ss.String()
+	return bb.String()
+}
+
+func (s *SomeGroup) TryAppendErr(e error) {
+	s.m.Lock()
+	s.el = append(s.el, e)
+	s.m.Unlock()
 }
